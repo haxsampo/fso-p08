@@ -22,6 +22,7 @@ const Authors = (props) => {
   const [author, setAuthor] = useState('')
   const [by, setBy] = useState('')
   const [mutAuthor] = useMutation(EDIT_AUTHOR)
+  const [valikko, setValikko] = useState('')
   //console.log("props.authors",props.authors)
   if (!props.show) {
     return null
@@ -38,13 +39,17 @@ const Authors = (props) => {
     var ne = parseInt(by)
     console.log("edit", author, " ", ne)
     var x = mutAuthor({variables: {
-      name:author,
+      name: valikko,
       setBornTo: ne
     }})
     console.log("x:",x)
   }
 
+  const handleChange = (event) => {
+    setValikko(event.target.value)
+  }
 
+  //<input value={author} onChange={({target}) => setAuthor(target.value)} />
   return (
     <div>
       <h2>authors</h2>
@@ -66,9 +71,15 @@ const Authors = (props) => {
       </table>
       <p></p>
       <form onSubmit={submit}>
+        set author birthyear
+      <select value={valikko} onChange={handleChange}>
+        {
+          authors.map((a)=> (
+            <option value={a.name}>{a.name}</option>
+          ))
+        }
+      </select>
       <div>
-        set by to author
-        <input value={author} onChange={({target}) => setAuthor(target.value)} />
         <p></p>
         birthyear
         <input value={by} onChange={({target})=> setBy(target.value)} />
