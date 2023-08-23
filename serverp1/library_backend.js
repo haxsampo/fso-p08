@@ -192,8 +192,8 @@ const resolvers = {
       return book
     },
     editAuthor: (root, args) => {
-      //console.log("args:", args)
-      //console.log("root:", root)
+      console.log("Authoredit", args)
+
       const author = authors.find(a => a.name === args.name)
       if (!author) {
         return null

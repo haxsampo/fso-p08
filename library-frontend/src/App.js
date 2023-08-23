@@ -14,9 +14,24 @@ const ALL_AUTHORS = gql`
   }
 `
 
+const ALL_BOOKS = gql`
+query {
+  allBooks  {
+    title
+    published
+    author
+  }
+}
+`
+
 const App = () => {
   const [page, setPage] = useState('authors')
-  const authors = useQuery(ALL_AUTHORS)
+  const authors = useQuery(ALL_AUTHORS, {
+    pollInterval:10000
+  })
+  const books = useQuery(ALL_BOOKS, {
+    pollInterval:10000
+  })
 
   return (
     <div>
@@ -28,9 +43,9 @@ const App = () => {
 
       <Authors show={page === 'authors'} authors={authors} />
 
-      <Books show={page === 'books'} />
+      <Books show={page === 'books'} books={books} />
 
-      <NewBook show={page === 'add'} />
+      <NewBook show={page === 'add'} allbooks={books} allbooks2={ALL_BOOKS} />
     </div>
   )
 }

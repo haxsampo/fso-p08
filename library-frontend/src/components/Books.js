@@ -3,8 +3,11 @@ const Books = (props) => {
   if (!props.show) {
     return null
   }
-
-  const books = []
+  if (props.books.loading) {
+    return null
+  }
+  //const authors = props.authors.data.allAuthors
+  const books = props.books.data.allBooks
 
   return (
     <div>
