@@ -7,9 +7,10 @@ const mongoose = require('mongoose')
 mongoose.set('strictQuery', false)
 const Book = require('./schemas/Book')
 const Author = require('./schemas/Author')
+const User = require('./schemas/User')
 const {MONGO_URL} = require('./utils/config')
 const { GraphQLError } = require('graphql')
-
+const jwt = require('jsonwebtoken')
 
 
 mongoose.connect(MONGO_URL)
@@ -40,19 +41,12 @@ const resolvers = {
     },
     allAuthors: async (root, args) => {
       return Author.find({})
+    },
+    me: (root, args, context) => {
+      console.log("context",context, root, args)
+
+      return context.currentUser
     }
-      /*(root, args) =>  {
-      if (args.genre && !args.author) {
-        return books.filter(b => b.genres.includes(args.genre))
-      } else if (!args.genre && args.author) {
-        return books.filter(b => b.author === args.author)
-      } else if (args.genre && args.author) {
-        return books.filter(b => b.genres.includes(args.genre)).filter(b => b.author === args.author)
-      } else {
-        return books
-      }
-    },*/
-    
   },
 
   Author: {
@@ -70,7 +64,6 @@ const resolvers = {
       }
     }
   },
-
   
   Book: {
     title: (root) => root.title,
@@ -86,9 +79,23 @@ const resolvers = {
     genres: (root) => root.genres,
   },
 
+  User: {
+    username: (root) => root.username,
+    favoriteGenre: (root, args) => {
+      console.log(root, args)
+      return root.favoriteGenre
+    } 
+  },
+
   Mutation: {
-    addBook: async (root, args) => {
-      console.log("args", args)
+    addBook: async (root, args, context) => {
+      if(!context.currentUser) {
+        throw new GraphQLError('Cannot add if not logged in', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+          }
+        })
+      }
       const maybeAuthor = await Author.find({ name: args.author})
       let newArgs = args
       let newAuthor = false
@@ -99,10 +106,6 @@ const resolvers = {
         newAuthor = new Author({name: args.author})
         old = false
       }
-
-
-
-
 
       try {
         if (!old) {
@@ -117,11 +120,11 @@ const resolvers = {
           }
         })
       } 
-
+      let ret = 0
       try {
         newArgs.author = newAuthor
         const newBook = new Book({ ...newArgs})
-        const ret = await newBook.save()
+        ret = await newBook.save()
       } catch (error) {
         if (!old) {
           let x = await Author.where().findOneAndRemove({name: args.author.name})
@@ -134,18 +137,55 @@ const resolvers = {
           }
         })
       }
-
-
       return ret
     },
     editAuthor: async (root, args) => {
       console.log("Authoredit", args)
+      if(!context.currentUser) {
+        throw new GraphQLError('Cannot edit if not logged in', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+          }
+        })
+      }
       const author = await Author.findOne({name: args.name})
       if (!author) {
         return null
       }
       author.born = args.setBornTo
       return author.save()
+    },
+    createUser: async (root, args) => {
+      const user = new User({ username: args.username, favoriteGenre: args.favoriteGenre })
+      return user.save()
+        .catch(error => {
+          throw new GraphQLError('Creating the user failed', {
+            extensions: {
+              code: 'BAD_USER_INPUT',
+              invalidArgs: args.name,
+              error
+            }
+          })
+        })
+    },
+    login: async (root, args) => {
+      console.log("LOGIN:", args)
+      const user = await User.findOne({ username: args.username })
+  
+      if ( !user || args.password !== '123123' ) {
+        throw new GraphQLError('wrong credentials', {
+          extensions: {
+            code: 'BAD_USER_INPUT'
+          }
+        })        
+      }
+  
+      const userForToken = {
+        username: user.username,
+        id: user._id,
+      }
+  
+      return { value: jwt.sign(userForToken, process.env.JWT_SECRET) }
     }
   }
 }
@@ -157,6 +197,20 @@ const server = new ApolloServer({
 
 startStandaloneServer(server, {
   listen: { port: 4000 },
+  context: async ({ req, res }) => {
+    const auth = req ? req.headers.authorization : null
+    if (auth && auth.startsWith('Bearer ')) {
+      console.log("1")
+      const decodedToken = jwt.verify(
+        auth.substring(7), process.env.JWT_SECRET
+      )
+      console.log("2")
+      const currentUser = await User
+        .findById(decodedToken.id)
+      console.log("currentuser",currentUser)
+      return { currentUser }
+    }
+  },
 }).then(({ url }) => {
   console.log(`Server ready at ${url}`)
 })
