@@ -8,6 +8,8 @@ mongoose.set('strictQuery', false)
 const Book = require('./schemas/Book')
 const Author = require('./schemas/Author')
 const {MONGO_URL} = require('./utils/config')
+const { GraphQLError } = require('graphql')
+
 
 
 mongoose.connect(MONGO_URL)
@@ -90,17 +92,51 @@ const resolvers = {
       const maybeAuthor = await Author.find({ name: args.author})
       let newArgs = args
       let newAuthor = false
+      let old = true
       if (Object.keys(maybeAuthor).length > 0) {
-        console.log("WANHA")
-        newArgs.author = maybeAuthor[0]
+        newAuthor = maybeAuthor[0]
       } else {
-        console.log("UUS")
         newAuthor = new Author({name: args.author})
-        await newAuthor.save()
-        newArgs.author = newAuthor
+        old = false
       }
-      const newBook = new Book({ ...newArgs})
-      return await newBook.save()
+
+
+
+
+
+      try {
+        if (!old) {
+          await newAuthor.save()
+        }
+      } catch (error) {
+        throw new GraphQLError('Saving failed', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+            invalidArgs: args.name,
+            error
+          }
+        })
+      } 
+
+      try {
+        newArgs.author = newAuthor
+        const newBook = new Book({ ...newArgs})
+        const ret = await newBook.save()
+      } catch (error) {
+        if (!old) {
+          let x = await Author.where().findOneAndRemove({name: args.author.name})
+        }
+        throw new GraphQLError('Saving failed', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+            invalidArgs: args.name,
+            error
+          }
+        })
+      }
+
+
+      return ret
     },
     editAuthor: async (root, args) => {
       console.log("Authoredit", args)
