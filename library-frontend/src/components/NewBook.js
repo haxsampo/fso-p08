@@ -12,7 +12,9 @@ const ADD_BOOK = gql`
       genres: $genres
     ) {
       title
-      author
+      author {
+        name
+      }
       published
       genres
     }
@@ -26,18 +28,20 @@ const NewBook = (props) => {
   const [published, setPublished] = useState('')
   const [genre, setGenre] = useState('')
   const [genres, setGenres] = useState([])
-  const [createBook] = useMutation(ADD_BOOK)
+  const [createBook, res] = useMutation(ADD_BOOK, {
+    onError: (error) => {
+      console.log("createbook error:", error)
+    }
+  })
 
   if (!props.show) {
     return null
   }
 
-  
-
   const submit = async (event) => {
     event.preventDefault()
-    console.log('add book...')
     var kukaidiootti = parseInt(published)
+    console.log('add book...',"title:",title, "author:",author, "pub:",kukaidiootti, "genres:",genre)
     createBook({variables: {
       title,
       author,

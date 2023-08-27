@@ -43,7 +43,7 @@ const resolvers = {
       return Author.find({})
     },
     me: (root, args, context) => {
-      console.log("context",context, root, args)
+      //console.log("context",context, root, args)
 
       return context.currentUser
     }
@@ -53,7 +53,6 @@ const resolvers = {
     name: (root) => root.name,
     bookCount: async (root, args) => {
       const books = await Book.find({})
-      console.log("books in author bookcount:", books)
       return books.filter(b => b.author === root.name ).length
     },
     born: (root, args) => {
@@ -68,13 +67,14 @@ const resolvers = {
   Book: {
     title: (root) => root.title,
     published: (root) => root.published,
-    author: async (root) => {
+    author: async (root, args) => {
       const authr = await Author.find({})
-      //console.log("aaeae", authr[0])
-      //console.log("author root",root)
-      const l = {name: authr[0].name, born:authr[0].born}
-      console.log("l: ", l)
-      return l
+      let oikeaAuth = authr.filter(a => a.id === root.author.toString())
+      if(oikeaAuth.born) {
+        return {name: oikeaAuth[0].name, born:oikeaAuth[0].born}
+      } else {
+        return {name: oikeaAuth[0].name}
+      }
     },
     genres: (root) => root.genres,
   },
@@ -82,13 +82,14 @@ const resolvers = {
   User: {
     username: (root) => root.username,
     favoriteGenre: (root, args) => {
-      console.log(root, args)
+      //console.log("User",root, args)
       return root.favoriteGenre
     } 
   },
 
   Mutation: {
     addBook: async (root, args, context) => {
+      console.log("ADDBOOK")
       if(!context.currentUser) {
         throw new GraphQLError('Cannot add if not logged in', {
           extensions: {
@@ -169,9 +170,7 @@ const resolvers = {
         })
     },
     login: async (root, args) => {
-      console.log("LOGIN:", args)
       const user = await User.findOne({ username: args.username })
-  
       if ( !user || args.password !== '123123' ) {
         throw new GraphQLError('wrong credentials', {
           extensions: {
@@ -184,8 +183,8 @@ const resolvers = {
         username: user.username,
         id: user._id,
       }
-  
-      return { value: jwt.sign(userForToken, process.env.JWT_SECRET) }
+      let x = { value: jwt.sign(userForToken, process.env.JWT_SECRET) }
+      return x
     }
   }
 }
@@ -200,14 +199,11 @@ startStandaloneServer(server, {
   context: async ({ req, res }) => {
     const auth = req ? req.headers.authorization : null
     if (auth && auth.startsWith('Bearer ')) {
-      console.log("1")
       const decodedToken = jwt.verify(
         auth.substring(7), process.env.JWT_SECRET
       )
-      console.log("2")
       const currentUser = await User
         .findById(decodedToken.id)
-      console.log("currentuser",currentUser)
       return { currentUser }
     }
   },
